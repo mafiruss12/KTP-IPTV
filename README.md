@@ -1,4 +1,4 @@
-# KTP-IPTV
+# IPTV FREE APP
 
 Application Android IPTV moderne écrite en **Kotlin** + **Jetpack Compose**.
 

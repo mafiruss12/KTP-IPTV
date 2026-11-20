@@ -94,7 +94,7 @@ class UpdateChecker(
                     if (!response.isSuccessful) return@withContext null
                     val body = response.body ?: return@withContext null
                     val total = body.contentLength()
-                    val file = File(context.cacheDir, "ktp-iptv-update.apk")
+                    val file = File(context.cacheDir, "iptv-free-app-update.apk")
                     file.outputStream().use { out ->
                         body.byteStream().use { input ->
                             val buffer = ByteArray(8 * 1024)
