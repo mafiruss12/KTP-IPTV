@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Autorise le trafic cleartext (HTTP) car beaucoup de flux IPTV sont en HTTP pur.
+     C'est la cause classique des erreurs "CLEARTEXT communication not permitted". -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+    <!-- Domaines connus pour forcer HTTPS si possible, mais on laisse cleartext global -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">iptv-org.github.io</domain>
+        <domain includeSubdomains="true">raw.githubusercontent.com</domain>
+    </domain-config>
+</network-security-config>
