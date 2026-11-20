@@ -7,6 +7,9 @@ import com.ktp.iptv.data.Channel
 import com.ktp.iptv.data.FilterState
 import com.ktp.iptv.data.NetworkModule
 import com.ktp.iptv.data.PlaylistRepository
+import com.ktp.iptv.data.UpdateChecker
+import com.ktp.iptv.BuildConfig
+import android.app.Application
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,12 +28,25 @@ data class UiState(
     val languages: List<String> = emptyList(),
     val proxyEnabled: Boolean = false,
     val proxyHost: String = "",
-    val proxyPort: String = "8080"
+    val proxyPort: String = "8080",
+    val updateInfo: UpdateChecker.UpdateInfo? = null,
+    val updateChecking: Boolean = false,
+    val updateDownloading: Boolean = false,
+    val updateProgress: Int = 0,
+    val updateMessage: String? = null
 )
 
 class MainViewModel(
-    private val repo: PlaylistRepository
+    private val repo: PlaylistRepository,
+    private val app: android.app.Application
 ) : ViewModel() {
+    private val updateChecker = UpdateChecker(app)
+    private val _updateInfo = MutableStateFlow<UpdateChecker.UpdateInfo?>(null)
+    private val _updateChecking = MutableStateFlow(false)
+    private val _updateDownloading = MutableStateFlow(false)
+    private val _updateProgress = MutableStateFlow(0)
+    private val _updateMessage = MutableStateFlow<String?>(null)
+
 
     private val _filter = MutableStateFlow(FilterState())
     private val _proxyEnabled = MutableStateFlow(false)
@@ -42,8 +58,23 @@ class MainViewModel(
         repo.isLoading,
         repo.error,
         _filter,
-        _proxyEnabled
-    ) { channels, loading, error, filter, proxyOn ->
+        _proxyEnabled,
+        _updateInfo,
+        _updateChecking,
+        _updateDownloading,
+        _updateProgress,
+        _updateMessage
+    ) { values ->
+        val channels = values[0] as List<Channel>
+        val loading = values[1] as Boolean
+        val error = values[2] as String?
+        val filter = values[3] as FilterState
+        val proxyOn = values[4] as Boolean
+        val updateInfo = values[5] as UpdateChecker.UpdateInfo?
+        val updateChecking = values[6] as Boolean
+        val updateDownloading = values[7] as Boolean
+        val updateProgress = values[8] as Int
+        val updateMessage = values[9] as String?
         val filtered = repo.filter(channels, filter)
         UiState(
             channels = channels,
@@ -56,7 +87,12 @@ class MainViewModel(
             languages = repo.availableLanguages(channels),
             proxyEnabled = proxyOn,
             proxyHost = _proxyHost.value,
-            proxyPort = _proxyPort.value
+            proxyPort = _proxyPort.value,
+            updateInfo = updateInfo,
+            updateChecking = updateChecking,
+            updateDownloading = updateDownloading,
+            updateProgress = updateProgress,
+            updateMessage = updateMessage
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UiState())
 
@@ -105,11 +141,13 @@ class MainViewModel(
     }
 
     companion object {
-        fun factory(repo: PlaylistRepository) = object : ViewModelProvider.Factory {
+        fun factory(repo: PlaylistRepository, app: android.app.Application) = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return MainViewModel(repo) as T
+                return MainViewModel(repo, app) as T
             }
         }
     }
 }
+
+// --- In-app update helpers (extension of MainViewModel) ---

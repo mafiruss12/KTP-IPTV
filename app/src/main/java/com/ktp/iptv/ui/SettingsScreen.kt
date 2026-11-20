@@ -39,7 +39,9 @@ fun SettingsScreen(
     onLoadDefault: () -> Unit,
     onLoadM3u: (String) -> Unit,
     onLoadXtream: (String, String, String) -> Unit,
-    onProxyChange: (Boolean, String, String) -> Unit
+    onProxyChange: (Boolean, String, String) -> Unit,
+    onCheckUpdate: () -> Unit = {},
+    onDownloadUpdate: () -> Unit = {}
 ) {
     var m3uUrl by remember { mutableStateOf("") }
     var xtreamServer by remember { mutableStateOf("") }
@@ -130,6 +132,47 @@ fun SettingsScreen(
                 enabled = xtreamServer.isNotBlank() && xtreamUser.isNotBlank()
             ) {
                 Text("Connexion Xtream")
+            }
+
+            Spacer(Modifier.height(16.dp))
+            
+            Text("Mise à jour de l'application", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Vérifie automatiquement les nouvelles versions publiées sur GitHub (releases).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Button(
+                onClick = onCheckUpdate,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.updateChecking && !state.updateDownloading
+            ) {
+                Text(if (state.updateChecking) "Vérification…" else "Vérifier les mises à jour")
+            }
+            state.updateInfo?.let { info ->
+                Text(
+                    "Nouvelle version disponible : ${info.versionName}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                if (info.changelog.isNotBlank()) {
+                    Text(info.changelog, style = MaterialTheme.typography.bodySmall)
+                }
+                Button(
+                    onClick = onDownloadUpdate,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !state.updateDownloading
+                ) {
+                    Text(
+                        if (state.updateDownloading)
+                            "Téléchargement ${state.updateProgress}%"
+                        else
+                            "Télécharger et installer"
+                    )
+                }
+            }
+            state.updateMessage?.let { msg ->
+                Text(msg, style = MaterialTheme.typography.bodySmall)
             }
 
             Spacer(Modifier.height(16.dp))

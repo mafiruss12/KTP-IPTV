@@ -46,7 +46,7 @@ private sealed class Screen {
 @Composable
 fun KtpIptvAppRoot(app: KtpIptvApp) {
     val vm: MainViewModel = viewModel(
-        factory = MainViewModel.factory(app.container.playlistRepository)
+        factory = MainViewModel.factory(app.container.playlistRepository, app)
     )
     val state by vm.uiState.collectAsState()
     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
@@ -56,6 +56,7 @@ fun KtpIptvAppRoot(app: KtpIptvApp) {
         if (state.channels.isEmpty() && !state.isLoading) {
             vm.loadDefault()
         }
+        vm.checkUpdate()
     }
 
     when (val s = screen) {
@@ -85,7 +86,9 @@ fun KtpIptvAppRoot(app: KtpIptvApp) {
                 vm.loadXtream(server, user, pass)
                 screen = Screen.Home
             },
-            onProxyChange = vm::updateProxy
+            onProxyChange = vm::updateProxy,
+            onCheckUpdate = vm::checkUpdate,
+            onDownloadUpdate = vm::downloadAndInstallUpdate
         )
         is Screen.Player -> PlayerScreen(
             channel = s.channel,
