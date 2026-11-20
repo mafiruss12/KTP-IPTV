@@ -1,15 +1,15 @@
 package com.ktp.iptv.ui
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.ktp.iptv.BuildConfig
 import com.ktp.iptv.data.Channel
 import com.ktp.iptv.data.FilterState
 import com.ktp.iptv.data.NetworkModule
 import com.ktp.iptv.data.PlaylistRepository
 import com.ktp.iptv.data.UpdateChecker
-import com.ktp.iptv.BuildConfig
-import android.app.Application
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -38,15 +38,15 @@ data class UiState(
 
 class MainViewModel(
     private val repo: PlaylistRepository,
-    private val app: android.app.Application
+    private val app: Application
 ) : ViewModel() {
+
     private val updateChecker = UpdateChecker(app)
     private val _updateInfo = MutableStateFlow<UpdateChecker.UpdateInfo?>(null)
     private val _updateChecking = MutableStateFlow(false)
     private val _updateDownloading = MutableStateFlow(false)
     private val _updateProgress = MutableStateFlow(0)
     private val _updateMessage = MutableStateFlow<String?>(null)
-
 
     private val _filter = MutableStateFlow(FilterState())
     private val _proxyEnabled = MutableStateFlow(false)
@@ -65,6 +65,7 @@ class MainViewModel(
         _updateProgress,
         _updateMessage
     ) { values ->
+        @Suppress("UNCHECKED_CAST")
         val channels = values[0] as List<Channel>
         val loading = values[1] as Boolean
         val error = values[2] as String?
@@ -140,14 +141,55 @@ class MainViewModel(
         repo.updateHttpClient(client)
     }
 
-    companion object {
-        fun factory(repo: PlaylistRepository, app: android.app.Application) = object : ViewModelProvider.Factory {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return MainViewModel(repo, app) as T
+    fun checkUpdate() {
+        viewModelScope.launch {
+            _updateChecking.value = true
+            _updateMessage.value = null
+            try {
+                val info = updateChecker.checkForUpdate(BuildConfig.VERSION_CODE.toLong())
+                _updateInfo.value = info
+                if (info == null) {
+                    _updateMessage.value = "Vous avez déjà la dernière version"
+                }
+            } catch (e: Exception) {
+                _updateMessage.value = "Erreur vérification : ${e.message}"
+            } finally {
+                _updateChecking.value = false
             }
         }
     }
-}
 
-// --- In-app update helpers (extension of MainViewModel) ---
+    fun downloadAndInstallUpdate() {
+        val info = _updateInfo.value ?: return
+        viewModelScope.launch {
+            _updateDownloading.value = true
+            _updateProgress.value = 0
+            _updateMessage.value = "Téléchargement…"
+            try {
+                val file = updateChecker.downloadApk(info.apkUrl) { p ->
+                    _updateProgress.value = p
+                }
+                if (file != null) {
+                    _updateMessage.value = "Installation…"
+                    updateChecker.installApk(file)
+                } else {
+                    _updateMessage.value = "Échec du téléchargement"
+                }
+            } catch (e: Exception) {
+                _updateMessage.value = "Erreur : ${e.message}"
+            } finally {
+                _updateDownloading.value = false
+            }
+        }
+    }
+
+    companion object {
+        fun factory(repo: PlaylistRepository, app: Application) =
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    return MainViewModel(repo, app) as T
+                }
+            }
+    }
+}
